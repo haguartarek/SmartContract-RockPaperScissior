@@ -1,0 +1,432 @@
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity ^0.8.4;
+contract rockpaper {
+
+
+
+     struct Player{
+        uint deposit;
+        bytes32 move;
+
+    }
+uint p=0;
+    uint public count=0;
+    uint  flag=0;
+   uint public playingEnd;
+    uint public revealEnd;
+    uint p1deposit;
+    uint p2deposit;
+    uint y=0;
+    uint x=0;
+
+    mapping(address => Player[]) players;
+    mapping(address => uint)  allmoves;
+
+   bool unmatched1=false;
+   bool unmatched2=false;
+    
+
+
+
+  address payable public p1address;
+  address payable public p2address;
+
+ uint reward;
+ uint halfreward;
+
+
+
+error ValueNotEven();
+error NotValidInput();
+error RewardNotAccepted();
+error GameEndAlreadyCalled();
+error Unmatchable();
+error DishonestPlayers();
+error TooLate(uint time);
+error TooEarly(uint time);
+error DepositIsMandatory();
+error NotEligible();
+error YouAlreadyPlayed();
+error YouAlreadyRevealed();
+error EnteredAddressesMustBeDifferent();
+
+  address payable public manager;
+
+  bool  ended=false;
+  bool player1prepared=false;
+  bool player2prepared =false;
+  bool player1played=false;
+  bool player2played=false;
+  bool player1revealed=false;
+  bool player2revealed=false;
+
+  address winneraddress;
+
+  event GameEnded(address winner);
+
+     modifier onlyBefore(uint time) {
+        if (block.timestamp >= time) revert TooLate(time - block.timestamp);
+        _;
+    }
+    modifier onlyAfter(uint time) {
+        if (block.timestamp <= time) revert TooEarly(time - block.timestamp);
+        _;
+    }
+
+  constructor  (
+        uint playingTime,
+        uint revealTime,
+        address payable p1add,
+        address payable p2add
+       // uint enteredreward
+    )
+    payable {
+        playingEnd = block.timestamp + playingTime;
+        revealEnd = playingEnd + revealTime;
+        manager = payable(msg.sender);
+        reward=msg.value;
+        halfreward = msg.value / 2;
+        p1address=p1add;
+        p2address=p2add;
+        unmatched1=false;
+        unmatched2=false;
+        if ((2 * halfreward) != msg.value)
+            revert ValueNotEven();
+        if(reward==0){
+            revert RewardNotAccepted();
+        }
+        if(p1address==p2address){
+                revert EnteredAddressesMustBeDifferent();
+        }
+
+
+
+    }
+
+    function getContractBalance() public view returns (uint256) {
+        return address(this).balance;
+    }
+    // function getplayerBalance(address contractAddress) public view returns(uint256){
+    //     return address(contractAddress).balance;
+    // }
+    function compareStrings(string memory a, string memory b) public pure returns (bool) {
+    return (keccak256(abi.encodePacked((a))) == keccak256(abi.encodePacked((b))));
+}
+    function prepareMove(string calldata move, bytes32 r)
+   // payable
+        public
+        onlyBefore(playingEnd)
+        returns (bytes32){
+            if(msg.sender != p1address && msg.sender!= p2address){
+                    revert NotEligible();
+            }
+            if(msg.sender==p1address && player1prepared==true){
+                revert  YouAlreadyPlayed();
+            }
+            else if(msg.sender==p1address && player1prepared==false){
+                player1prepared=true;
+            }
+            if(msg.sender==p2address && player2prepared==true){
+                revert  YouAlreadyPlayed();
+            }
+            else if(msg.sender==p2address && player2prepared==false){
+                player2prepared=true;
+            }
+            int w=0;
+            if(compareStrings(move, "Scissors")==false && compareStrings(move, "scissors")==false && compareStrings(move, "SCISSORS")==false ){
+                w++;
+            }
+            if(compareStrings(move, "Rock")==false && compareStrings(move, "rock")==false && compareStrings(move, "ROCK")==false ){
+                w++;
+            }
+         if(compareStrings(move, "Paper")==false && compareStrings(move, "paper")==false && compareStrings(move, "PAPER")==false){
+                w++;
+            }
+            if(w==3){
+                revert NotValidInput();
+            }
+        
+        return keccak256(abi.encodePacked(move, r));
+    }
+    function maketheMove(bytes32 hashedmove)
+        external
+        payable
+        onlyBefore(playingEnd)
+    {      
+       
+          if(msg.sender != p1address && msg.sender!= p2address){
+                    revert NotEligible();
+            }
+            if(msg.sender==p1address && player1played==true){
+                revert  YouAlreadyPlayed();
+            }
+            else if(msg.sender==p1address && player1played==false){
+                player1played=true;
+            }
+           else if(msg.sender==p2address && player2played==true){
+                revert  YouAlreadyPlayed();
+            }
+            else if(msg.sender==p2address && player2played==false){
+                player2played=true;
+            }
+            if(msg.value==0){
+                revert DepositIsMandatory();
+            }
+        players[msg.sender].push(Player({
+            move: hashedmove,
+            deposit: msg.value
+
+        }));
+
+    }
+     function reveal(
+        string[] calldata  ms,      //move
+        bytes32[] calldata ss        //hash
+    )
+      payable
+        external
+        onlyAfter(playingEnd)
+        onlyBefore(revealEnd)
+    {
+       uint z=0;
+      
+       if(p==0){
+           p=1;
+       }
+       if(p==1){
+           p==2;
+       }
+        if(msg.sender != p1address && msg.sender!= p2address){
+                    revert NotEligible();
+            }
+
+            if(msg.sender==p1address && player1revealed==true){
+                revert  YouAlreadyRevealed();
+            }
+            else if(msg.sender==p1address && player1revealed==false){
+                player1revealed=true;
+            }
+           else if(msg.sender==p2address && player2revealed==true){
+                revert  YouAlreadyRevealed();
+            }
+            else if(msg.sender==p2address && player2revealed==false){
+                player2revealed=true;
+            }
+    uint length = players[msg.sender].length;
+    require(ms.length == length);
+        require(ss.length == length);
+        uint refund=0;
+     for (uint i = 0; i < length; i++) {
+       Player storage pl = players[msg.sender][i];
+       (string calldata m, bytes32 s) = (ms[i], ss[i]);
+       if(pl.move != keccak256(abi.encodePacked(m,s))){
+           if(msg.sender==p1address){
+               unmatched1=true;
+               z=1;
+               
+           }
+           if(msg.sender==p2address){
+               unmatched2=true;
+               z=1;
+             
+               
+                // revert Unmatchable();
+           }
+          
+       }
+       else{
+           
+            if(compareStrings(m, "Scissors")==true || compareStrings(m, "scissors")==true || compareStrings(m, "SCISSORS")==true  ){
+            allmoves[msg.sender]=3;
+            }
+            else if(compareStrings(m, "Rock")==true || compareStrings(m, "rock")==true || compareStrings(m, "ROCK")==true ){
+                 allmoves[msg.sender]=1;
+            }
+            else if(compareStrings(m, "Paper")==true || compareStrings(m, "paper")==true || compareStrings(m, "PAPER")==true ){
+                 allmoves[msg.sender]=2;
+            }
+       }
+        if(decideWinner()==0x0000000000000000000000000000000000000000){
+         //  refund=refund+halfreward;
+           winneraddress=0x0000000000000000000000000000000000000000;
+
+       }
+        else if(decideWinner()==p1address){
+           winneraddress=p1address;
+       }
+       else if(decideWinner()==p2address){
+           winneraddress=p2address;
+       }
+       
+        refund=pl.deposit;
+      
+       if(z==0){
+       payable(msg.sender).transfer(refund);
+       }
+      
+        
+     }
+
+    }
+    function getmove(address q) view  public  returns (uint){
+            return allmoves[q];
+    }
+    function getcount() view  public  returns (uint){
+            return y;
+    }
+    //  function getplayer1balance() view  public  returns (uint){
+    //         return p1Balance;
+    // }
+    // function getplayer2balance() view  public  returns (uint){
+    //         return p2Balance;
+    // }
+    function getWinner() 
+    onlyAfter(revealEnd)
+     view  public  returns (address)
+
+    {
+            return winneraddress;
+    }
+    function gameEnd()
+        external
+        payable
+        onlyAfter(revealEnd)
+    {
+          require(
+            msg.sender == manager,
+            "Only manager can give right to end the game and distribute rewards."
+        );
+        
+        if (ended) revert GameEndAlreadyCalled();
+        emit GameEnded(winneraddress);
+        ended = true;
+         if(unmatched2==true && unmatched1==true){
+            manager.transfer(getContractBalance());
+        }
+         else if(player1played==false && player2played==false){
+           manager.transfer(reward);
+       }
+       else if(player1played==false && player2played==true){
+           if(unmatched2==true){
+               manager.transfer(getContractBalance());
+           }else if(unmatched2==false){
+            p2address.transfer(reward);
+            
+           }
+             
+       }
+
+       else if(player1played==true && player2played==false){
+              if(unmatched1==true){
+               manager.transfer(getContractBalance());
+           }else if(unmatched1==false){
+            p1address.transfer(reward);
+           }
+         
+
+       }else if(unmatched1==true && player2played==false){
+           manager.transfer(getContractBalance());
+       }else if (unmatched2==true && player1played==false){
+           manager.transfer(getContractBalance());
+       }
+    
+       else if(p1address==winneraddress){
+            p1address.transfer(reward);
+            if(getContractBalance()!=0){
+                manager.transfer(getContractBalance());
+            }
+        }
+       else if(p2address==winneraddress){
+           p2address.transfer(reward);
+           if(getContractBalance()!=0){
+                manager.transfer(getContractBalance());
+            }
+       }
+       else if(winneraddress==0x0000000000000000000000000000000000000000){
+           p1address.transfer(halfreward);
+           p2address.transfer(halfreward);
+        
+           }
+
+      
+    }
+    
+
+    function decideWinner()   internal
+            returns (address winner)
+    {    
+        address a=0x0000000000000000000000000000000000000000;
+        if(unmatched1==true && unmatched2==false){
+             if(player2played==true){
+                 y=1;
+                return p2address;
+            }
+            else if(player2played==false){
+                y=2;
+                return a;
+            }
+        } else if(unmatched2==true && unmatched1==false){
+            if(player1played==true){
+                y=3;
+                return p1address;
+            }
+            else if(player1played==false){
+                y=4;
+                return a;
+            }
+        }
+        else if(unmatched2==true && unmatched1==true){
+            y=5;
+            return a;
+
+        }
+        else if(player1played==false && player2played==false){
+            y=6;
+           return a;
+       }
+       else if(player1played==false && player2played==true){
+           y=7;
+           return p2address;
+       }
+       else if(player1played==true && player2played==false){
+           y=8;
+          return p1address;
+       }
+        //rock=1
+        //paper=2
+        //scissors=3
+      else{
+          y=9;
+          if(allmoves[p1address]== 1){
+            if (allmoves[p2address]==2){
+                return p2address;
+            }
+            if (allmoves[p2address]==3){
+                return p1address;
+            }
+
+        }
+        else if(allmoves[p1address]==2){
+              if (allmoves[p2address]==1){
+                return p1address;
+            }
+            if (allmoves[p2address]==3){
+                return p2address;
+            }
+        }
+            else if(allmoves[p1address]==3)
+            {
+            if (allmoves[p2address]==1){
+                return p2address;
+            }
+            if (allmoves[p2address]==2){
+                return p1address;
+            }
+            }
+              else if(allmoves[p1address]==allmoves[p2address]){
+            return a;
+        }
+    
+    }
+}
+}
