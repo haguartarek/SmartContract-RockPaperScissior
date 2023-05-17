@@ -1,8 +1,6 @@
 # SmartContract-RockPaperScissior
 
-Sure, here is a README for the Rock-Paper-Scissors Smart Contract:
 
-Rock-Paper-Scissors Smart Contract
 This is a smart contract that allows two players to play a game of Rock-Paper-Scissors. The contract is deployed by a manager, who specifies the playing time, revealing time, address of the first player and the address of the second player, and assigns the reward of the game in the value field.
 
 How to Play
